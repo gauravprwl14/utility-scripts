@@ -4,16 +4,25 @@
 // Load environment variables from .env file
 require('dotenv').config();
 
-const { getConfig } = require('./lib/config');
-const { makeApiCall, constructPayload, outputResult } = require('./lib/utils');
 const path = require('path');
+const { getConfig } = require('./lib/config');
+const { ApiClient } = require('./lib/api/client');
+const { fetchVideoInfo, fetchTranscript, fetchVideoAnalysis, fetchVideoAssembly, constructPayload } = require('./lib/api/endpoints');
+const { generateMarkdown, generateTimestampedTranscript, extractSummary } = require('./lib/formatters/markdown');
+const { appendIndexEntry } = require('./lib/formatters/index');
+const { sanitizeTitle } = require('./lib/utils/string');
+const { ensureDirectoryExists, writeFile } = require('./lib/utils/file');
 
 /**
  * Helper to get argument value
  */
 function getArg(name) {
   const arg = process.argv.find(a => a.startsWith(`--${name}=`));
-  return arg ? arg.split('=')[1] : undefined;
+  if (!arg) return undefined;
+  
+  // Remove the --name= prefix, keeping everything after (handles URLs with = in them)
+  const prefix = `--${name}=`;
+  return arg.slice(prefix.length);
 }
 
 /**
@@ -33,40 +42,18 @@ function getOutputFormat() {
 /**
  * Consolidated function to gather all data and handle errors
  */
-async function gatherAllData(config, outDir) {
-  const { baseUrl } = config;
-  // Allow targetUrl and token override via arguments
-  const targetUrl = getArg('url') || config.targetUrl;
-  const token = getArg('token') || config.token;
+async function gatherAllData(client, targetUrl) {
+  console.log('🚀 Starting data extraction...');
 
-  // Headers template
-  const commonHeaders = {
-    'accept': '*/*',
-    'accept-language': 'en-GB,en;q=0.7',
-    'content-type': 'application/json',
-    'origin': baseUrl,
-    'referer': `${baseUrl}/analyze?url=${encodeURIComponent(targetUrl)}`,
-    'user-agent': 'Mozilla/5.0 (Linux; Intel Linux) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
-    'cookie': `tldw_guest_token=${token}`,
-  };
-
-  // Step 1: video-info & transcript in parallel
+  // Step 1: Fetch video-info & transcript in parallel
   let videoInfo, transcript;
   try {
+    console.log('📥 Fetching video info and transcript...');
     [videoInfo, transcript] = await Promise.all([
-      makeApiCall({
-        method: 'POST',
-        url: `${baseUrl}/api/video-info`,
-        headers: commonHeaders,
-        data: { url: targetUrl },
-      }),
-      makeApiCall({
-        method: 'POST',
-        url: `${baseUrl}/api/transcript`,
-        headers: commonHeaders,
-        data: { url: targetUrl },
-      })
+      fetchVideoInfo(client, targetUrl),
+      fetchTranscript(client, targetUrl)
     ]);
+    console.log('✅ Video info and transcript fetched');
   } catch (err) {
     return {
       error: 'Failed to fetch video-info or transcript',
@@ -74,54 +61,28 @@ async function gatherAllData(config, outDir) {
     };
   }
 
-  // Step 2: video-analysis
+  // Step 2: Construct payload and fetch video-analysis
+  const payload = constructPayload(videoInfo, transcript);
   let videoAnalysis = null;
-  let analysisPayload = constructPayload(videoInfo, transcript);
+  
   try {
-    videoAnalysis = await makeApiCall({
-      method: 'POST',
-      url: `${baseUrl}/api/video-analysis`,
-      headers: commonHeaders,
-      data: analysisPayload,
-    });
+    console.log('🔍 Analyzing video...');
+    videoAnalysis = await fetchVideoAnalysis(client, payload);
+    console.log('✅ Video analysis completed');
   } catch (err) {
-    // Handle 401 or other errors
-    if (err.response && err.response.status === 401) {
-      videoAnalysis = {
-        error: 'Unauthorized',
-        message: 'You have used your free preview. Create a free account for 3 videos/month or upgrade for more.',
-        requiresAuth: true,
-        redirectTo: '/?auth=signup',
-        creditsMessage: 'This one is on us; no credits used.',
-        noCreditsUsed: true,
-      };
-    } else {
-      videoAnalysis = {
-        error: 'video-analysis failed',
-        details: err.message,
-      };
-    }
-  }
-
-  // Step 3: video-assembly (optional)
-  let videoAssembly = null;
-  try {
-    videoAssembly = await makeApiCall({
-      method: 'POST',
-      url: `${baseUrl}/api/video-assembly`,
-      headers: commonHeaders,
-      data: analysisPayload,
-    });
-  } catch (err) {
-    videoAssembly = {
-      error: 'video-assembly failed',
+    console.warn('⚠️  Video analysis failed:', err.message);
+    videoAnalysis = {
+      error: 'video-analysis failed',
       details: err.message,
     };
   }
 
-  // Consolidated result
-  const title = videoInfo.title || videoInfo.videoInfo?.title || 'output';
-  const result = {
+  // Step 3: Fetch video-assembly (optional)
+  console.log('🔧 Assembling video data...');
+  const videoAssembly = await fetchVideoAssembly(client, payload);
+
+  // Return consolidated result
+  return {
     videoInfo,
     transcript,
     videoAnalysis,
@@ -129,30 +90,87 @@ async function gatherAllData(config, outDir) {
     targetUrl,
     gatheredAt: new Date().toISOString(),
   };
-  
-  // Get output format from argument or default to markdown
-  const format = getOutputFormat();
-  outputResult(result, title, outDir, format);
-  return result;
 }
 
 /**
- * Main runner - orchestrates API calls in sequence, handles config, outputs result
+ * Output results in specified format(s)
+ */
+function outputResults(result, title, outDir, formats) {
+  const safeTitle = sanitizeTitle(title);
+  const videoFolder = path.join(outDir, safeTitle);
+  ensureDirectoryExists(videoFolder);
+  const formatsArray = Array.isArray(formats) ? formats : [formats];
+
+  formatsArray.forEach(format => {
+    let fileName, filePath;
+    if (format === 'json') {
+      fileName = 'data.json';
+      filePath = path.join(videoFolder, fileName);
+      const content = JSON.stringify(result, null, 2);
+      const written = writeFile(filePath, content);
+      if (written) {
+        console.log(`✅ JSON output written: ${filePath}`);
+      }
+    } else if (format === 'md') {
+      fileName = 'notes.md';
+      filePath = path.join(videoFolder, fileName);
+      const content = generateMarkdown(result);
+      const written = writeFile(filePath, content);
+      if (written) {
+        console.log(`✅ Markdown output written: ${filePath}`);
+      }
+
+      // Create .txt file with timestamped transcript in 'transcripts' subfolder (no change)
+      const transcriptsDir = path.join(outDir, 'transcripts');
+      ensureDirectoryExists(transcriptsDir);
+
+      const txtFileName = `${safeTitle}.txt`;
+      const txtFilePath = path.join(transcriptsDir, txtFileName);
+      const timestampedText = generateTimestampedTranscript(result.transcript);
+
+      if (timestampedText) {
+        const txtWritten = writeFile(txtFilePath, timestampedText);
+        if (txtWritten) {
+          console.log(`✅ Transcript written: ${txtFilePath}`);
+        }
+      }
+
+      // Update index.md with Obsidian wiki link to folder
+      const summary = extractSummary(result.videoAnalysis, result.videoAssembly);
+      appendIndexEntry(outDir, result.videoInfo, safeTitle, summary, result.targetUrl);
+    }
+  });
+}
+
+/**
+ * Main runner - orchestrates API calls, handles config, outputs result
  */
 async function main() {
-  // Load config
-  const config = getConfig(process.argv);
-  const outDir = config.outputDir;
-
   try {
-    const result = await gatherAllData(config, outDir);
+    // Load config
+    const config = getConfig(process.argv);
+    const outDir = config.outputDir;
+    const targetUrl = getArg('url') || config.targetUrl;
+
+    // Create API client with token refresh capability
+    const client = new ApiClient(config);
+
+    // Gather all data
+    const result = await gatherAllData(client, targetUrl);
+    
     if (result.error) {
-      console.error('Error:', result.error, result.details || '');
+      console.error('❌ Error:', result.error, result.details || '');
       process.exit(1);
     }
-    console.log('✅ Data gathered and output written.');
+
+    // Output results
+    const title = result.videoInfo.title || result.videoInfo.videoInfo?.title || 'output';
+    const format = getOutputFormat();
+    outputResults(result, title, outDir, format);
+    
+    console.log('✨ All done!');
   } catch (err) {
-    console.error('Error:', err.message);
+    console.error('❌ Error:', err.message);
     process.exit(1);
   }
 }

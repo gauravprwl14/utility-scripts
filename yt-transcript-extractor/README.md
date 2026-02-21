@@ -1,228 +1,227 @@
-# YT Transcript Extractor - Tampermonkey Script
 
-A Tampermonkey/Greasemonkey userscript that adds a **Copy** button to Longcut.ai video analysis pages. Click it to copy the entire transcript, highlights, and metadata as JSON to your clipboard.
+# YT Transcript Extractor
 
-## Features
-
-- 📋 **One-Click Copy**: Copies all video data to clipboard as formatted JSON
-- 🎯 **Complete Data Extraction**:
-  - YouTube URL and Video ID
-  - Full transcript (with segment timestamps)
-  - Highlights/chapters with timestamps
-  - Video title and duration
-  - Summary/key takeaways
-- ✅ **Visual Feedback**: Button shows success/error state after copying
-- 🔄 **Dynamic Content Support**: Works with Single Page Application navigation
-- 🎨 **Native Styling**: Button matches Longcut.ai's design system
-
-## Installation
-
-### Step 1: Install Tampermonkey
-
-Install the Tampermonkey browser extension:
-
-- **Chrome/Edge**: [Chrome Web Store](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
-- **Firefox**: [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/)
-- **Safari**: [Mac App Store](https://apps.apple.com/us/app/tampermonkey/id1482490089)
-
-### Step 2: Install the Script
-
-1. Click on the Tampermonkey icon in your browser
-2. Select **"Create a new script..."**
-3. Delete any existing code in the editor
-4. Copy the entire contents of `chrome-extension-transcript.js`
-5. Paste into the Tampermonkey editor
-6. Press **Ctrl+S** (or Cmd+S on Mac) to save
-7. Close the editor tab
-
-### Step 3: Verify Installation
-
-1. Visit any Longcut.ai analysis page: https://www.longcut.ai/analyze/[video-id]
-2. You should see a **Copy** button next to the **Export** button
-3. If the button doesn't appear, refresh the page
-
-## Usage
-
-1. Navigate to any Longcut.ai video analysis page
-2. Wait for the page to fully load
-3. Look for the **Copy** button next to the **Export** button in the toolbar
-4. Click the **Copy** button
-5. The button will show a checkmark and "Copied!" confirmation
-6. Paste (Ctrl+V / Cmd+V) anywhere to see the JSON data
-
-### Example Output
-
-```json
-{
-  "youtubeUrl": "https://www.youtube.com/watch?v=ryGJLXruUxs",
-  "videoId": "ryGJLXruUxs",
-  "title": "Claude Code Git Worktree Setup: Run Multiple Agents in Parallel",
-  "duration": "7:22",
-  "highlights": [
-    {
-      "title": "Git Worktrees Isolate Multiple Agents",
-      "timestamp": "0:54",
-      "color": "rgb(178, 149, 214)"
-    },
-    {
-      "title": "Symlinks Share Secrets Without Duplication",
-      "timestamp": "0:54",
-      "color": "rgb(255, 217, 122)"
-    }
-  ],
-  "transcript": {
-    "segments": [
-      {
-        "index": 0,
-        "text": "You've seen developers running multiple coding agents at once..."
-      }
-    ],
-    "fullText": "You've seen developers running multiple coding agents at once..."
-  },
-  "summary": "• Git Worktrees Isolate Multiple Agents (0:54)\n• Symlinks Share Secrets Without Duplication (0:54)",
-  "extractedAt": "2026-02-21T10:30:00.000Z",
-  "sourceUrl": "https://www.longcut.ai/analyze/ryGJLXruUxs?url=..."
-}
-```
-
-## JSON Structure
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `youtubeUrl` | string | Original YouTube video URL |
-| `videoId` | string | YouTube video ID |
-| `title` | string | Video title |
-| `duration` | string | Video duration (MM:SS format) |
-| `highlights` | array | Key moments with timestamps and colors |
-| `transcript.segments` | array | Individual transcript segments with index |
-| `transcript.fullText` | string | Complete transcript as plain text |
-| `summary` | string | Video summary or key takeaways |
-| `extractedAt` | string | ISO timestamp of extraction |
-| `sourceUrl` | string | Longcut.ai page URL |
-
-## Troubleshooting
-
-### Button doesn't appear
-
-1. **Refresh the page** - The script may need to reinitialize
-2. **Check Tampermonkey is enabled** - Click the extension icon and verify it's active
-3. **Verify URL match** - Make sure you're on a `/analyze/` page
-4. **Check console** - Press F12, go to Console tab, look for error messages
-
-### Copy fails
-
-1. **Browser permissions** - Some browsers require you to grant clipboard access
-2. **Check console** - Press F12 to see error details
-3. **Try again** - Temporary clipboard API issues can occur
-
-### Incomplete data
-
-- **Wait for page load** - Make sure all content is fully loaded before copying
-- **Check extraction** - Some fields may be null if not available on the page
-- **Verify selectors** - If Longcut.ai updates their UI, selectors may need adjustment
-
-## Development
-
-### Modifying the Script
-
-1. Open Tampermonkey dashboard
-2. Find "YT Transcript Extractor" script
-3. Click the edit icon
-4. Make your changes
-5. Save (Ctrl+S / Cmd+S)
-6. Refresh the Longcut.ai page to test
-
-### Debug Mode
-
-The script logs useful information to the browser console:
-
-```javascript
-// Open DevTools (F12) and check Console tab
-// You'll see:
-- Script initialization messages
-- Button injection status
-- Extracted data preview
-- Error messages if something fails
-```
-
-### Key Functions
-
-- `extractYouTubeUrl()` - Parses YouTube URL from page query params
-- `extractTranscript()` - Finds all transcript segments by data attribute
-- `extractHighlights()` - Locates highlight buttons and extracts metadata
-- `gatherAllData()` - Orchestrates all extraction functions
-- `copyToClipboard()` - Handles clipboard API with fallback
-
-## Customization
-
-### Change Button Position
-
-Find this line in the script:
-```javascript
-container.insertBefore(copyButton, exportButton);
-```
-
-Change to:
-```javascript
-container.appendChild(copyButton); // Place after Export button
-```
-
-### Change Button Style
-
-Modify the `createCopyButton()` function to adjust colors, icons, or text.
-
-### Modify JSON Structure
-
-Edit the `gatherAllData()` function to add/remove fields or change the structure.
-
-## Browser Compatibility
-
-- ✅ Chrome/Edge (v90+)
-- ✅ Firefox (v88+)
-- ✅ Safari (with Tampermonkey)
-- ✅ Opera (v76+)
-- ⚠️ Older browsers may need clipboard fallback
-
-## Performance
-
-- **Lightweight**: ~15KB unminified
-- **Fast**: Data extraction takes <100ms
-- **Non-blocking**: Doesn't interfere with page functionality
-- **Memory efficient**: No persistent storage or listeners
-
-## Privacy & Security
-
-- ✅ **No external requests**: All processing happens locally
-- ✅ **No data collection**: Nothing is sent to servers
-- ✅ **No tracking**: Script doesn't monitor your usage
-- ✅ **Read-only**: Only reads page content, doesn't modify data
-
-## License
-
-MIT License - Free to use, modify, and distribute
-
-## Changelog
-
-### v1.1.0 (2026-02-21)
-- 🎯 Improved title extraction with multiple fallback strategies
-- 📺 Added YouTube oEmbed API integration for reliable title fetching
-- ✨ Better document title parsing and metadata extraction
-- 🔍 Enhanced selector coverage for various page structures
-
-### v1.0.0 (2026-02-21)
-- ✨ Initial release
-- 📋 Copy transcript, highlights, and metadata
-- ✅ Visual feedback on copy success/failure
-- 🔄 Dynamic content support with MutationObserver
-- � Native UI styling matching Longcut.ai
-
-## Support
-
-For issues, questions, or feature requests:
-1. Check the **Troubleshooting** section above
-2. Open browser DevTools (F12) and check Console for errors
-3. Verify you're using the latest version of the script
+Node.js automation tool to extract YouTube video transcripts, metadata, and analysis from Longcut.ai (yt-extractor). Generates Markdown, JSON, and plain text outputs, with robust error handling and organized output structure.
 
 ---
 
-**Enjoy effortless transcript copying! 🚀**
+## Features
+
+- 🚀 **Automated API Calls**: Sequentially calls Longcut.ai endpoints for video info, transcript, and analysis
+- ⚡ **Parallel Fetching**: Fetches video-info and transcript in parallel for speed
+- 🛡️ **Robust Error Handling**: Handles 401, network, and API errors gracefully
+- 📝 **Flexible Output**: Generates Markdown, JSON, and timestamped transcript (.txt) files
+- 📂 **Organized Output**: All outputs go to a dedicated output directory, with transcripts in a subfolder
+- 🔄 **Token Refresh**: Automatically refreshes token if expired
+- 🗂️ **index.md**: Maintains an index of all processed videos with summary/description
+- 🔧 **Configurable**: Supports .env, environment variables, and CLI arguments
+- 🧩 **Modular Codebase**: SOLID, DRY, and well-documented
+
+---
+
+## Installation
+
+```bash
+cd scripts/yt-transcript-extractor
+npm install
+```
+
+---
+
+## Configuration
+
+You can configure the script using (in order of priority):
+
+1. **Environment Variables**
+   - `BASE_URL`, `TLDW_GUEST_TOKEN`, `TARGET_URL`, `OUTPUT_DIR`, `OUTPUT_FORMAT`
+2. **Command Line Arguments**
+   - `--baseUrl=`, `--token=`, `--url=`, `--outDir=`, `--format=`
+3. **.env File** (recommended)
+   - Place in the root of the script directory
+
+Example `.env`:
+```env
+BASE_URL=https://www.longcut.ai
+TLDW_GUEST_TOKEN=your_token_here
+TARGET_URL=https://www.youtube.com/watch?v=VIDEO_ID
+OUTPUT_DIR=./output
+OUTPUT_FORMAT=md
+```
+
+---
+
+## Usage
+
+### Basic
+
+```bash
+node main.js --url=https://www.youtube.com/watch?v=VIDEO_ID --token=YOUR_TOKEN
+```
+
+### Custom Output Format
+
+```bash
+# Markdown (default)
+node main.js --url=... --token=... --format=md
+# JSON
+node main.js --url=... --token=... --format=json
+# Both
+node main.js --url=... --token=... --format=both
+```
+
+### Custom Output Directory
+
+```bash
+node main.js --url=... --token=... --outDir=/path/to/output
+```
+
+### With .env
+
+```bash
+export TLDW_GUEST_TOKEN=your_token
+export TARGET_URL=https://www.youtube.com/watch?v=VIDEO_ID
+node main.js
+```
+
+---
+
+
+## Output Structure
+
+- Each video gets its own folder inside the output directory (default: `output/`), named after the sanitized video title
+- Inside each folder:
+   - `notes.md` (Markdown output)
+   - `data.json` (JSON output, if selected)
+- All transcript `.txt` files are placed in `output/transcripts/`
+- `index.md` is updated with each run, listing all processed videos using Obsidian wiki links
+
+### Example Structure
+
+```
+output/
+├── index.md
+├── Video-Title-1/
+│   ├── notes.md
+│   └── data.json
+├── Video-Title-2/
+│   └── notes.md
+└── transcripts/
+      ├── Video-Title-1.txt
+      └── Video-Title-2.txt
+```
+
+### Markdown Example (notes.md)
+
+```markdown
+# Video Title
+
+## Metadata
+- **Author**: Channel Name
+- **Video ID**: VIDEO_ID
+- **Duration**: MM:SS
+- **URL**: [Watch on YouTube](https://youtube.com/...)
+- **Gathered**: Date and time
+
+## Description
+Video description content...
+
+## Video Analysis
+Summary/analysis content...
+
+## Full Transcript
+Combined transcript text...
+
+## Transcript with Timestamps
+**[00:00]** First segment text...
+**[00:23]** Second segment text...
+```
+
+### JSON Example (data.json)
+
+```json
+{
+   "videoInfo": { ... },
+   "transcript": { ... },
+   "videoAnalysis": { ... },
+   "videoAssembly": { ... },
+   "targetUrl": "https://www.youtube.com/watch?v=VIDEO_ID",
+   "gatheredAt": "2026-02-21T12:34:56.789Z"
+}
+```
+
+### Transcript TXT Example (output/transcripts/Video-Title-1.txt)
+
+```
+[00:00] First segment text...
+[00:23] Second segment text...
+```
+
+### index.md Example (Obsidian Wiki Links)
+
+```
+- [[Video-Title-1]] (2026-02-21) - Video summary... [YouTube](url)
+- [[Video-Title-2]] (2026-02-21) - Another summary... [YouTube](url)
+```
+
+---
+
+## Error Handling
+
+- **Configuration Errors**: Missing required config throws descriptive errors
+- **API Errors**: All API errors are captured in the output JSON/Markdown
+- **File System**: Output directories are auto-created; duplicate files are skipped
+
+---
+
+## Project Structure
+
+```
+yt-transcript-extractor/
+├── lib/
+│   ├── utils/
+│   │   ├── string.js
+│   │   └── file.js
+│   ├── api/
+│   │   ├── client.js
+│   │   └── endpoints.js
+│   └── formatters/
+│       ├── markdown.js
+│       └── index.js
+├── main.js
+├── package.json
+├── .env
+└── output/
+    ├── transcripts/
+    ├── index.md
+    └── ...
+```
+
+---
+
+## Development & Extensibility
+
+- Modular code: utils, api, formatters
+- Add new output formats by extending `lib/formatters/`
+- Update API logic in `lib/api/`
+- All config logic in `lib/config.js`
+
+---
+
+## License
+
+ISC
+
+---
+
+## Changelog
+
+### 2026-02-21
+- Major refactor: modular code, token refresh, index.md, transcript subfolder, robust error handling
+- Output directory and subfolder auto-creation
+- Markdown, JSON, and .txt transcript outputs
+
+---
+
+## Support
+
+For issues or questions, open an issue or see the Troubleshooting section above.
