@@ -1,0 +1,27 @@
+{
+  "name": "yt-transcript-extractor",
+  "version": "1.0.0",
+  "description": "YouTube transcript extractor with proper error handling and configuration management",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "youtube",
+    "transcript",
+    "video-analysis",
+    "youtube",
+    "transcript",
+    "video-analysis"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
