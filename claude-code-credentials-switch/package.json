@@ -1,0 +1,19 @@
+{
+  "name": "claude-code-credentials-switch",
+  "version": "1.0.0",
+  "description": "This script automates switching client credentials in destination JSON files. It extracts credentials for a specified client ID from a source JSON file and updates matching properties in destination files (which do not use client IDs).",
+  "main": "constants.js",
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^17.3.1"
+  }
+}
